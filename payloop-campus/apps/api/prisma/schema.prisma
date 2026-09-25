@@ -1,0 +1,539 @@
+// This is your Prisma schema file for PayLoop Campus
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  STUDENT
+  MERCHANT
+  ADMIN
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  DEMO_BALANCE
+}
+
+enum RewardType {
+  POINTS
+  DISCOUNT
+  CASHBACK_SIMULATION
+  COUPON
+  FREE_ITEM
+}
+
+enum OfferStatus {
+  ACTIVE
+  PAUSED
+  EXPIRED
+  PENDING_APPROVAL
+  REJECTED
+}
+
+enum MerchantStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+}
+
+enum BillStatus {
+  OPEN
+  PARTIALLY_PAID
+  SETTLED
+}
+
+enum SplitType {
+  EQUAL
+  CUSTOM
+  PERCENTAGE
+}
+
+enum NotificationType {
+  PAYMENT
+  REWARD
+  OFFER
+  SYSTEM
+  ALERT
+}
+
+enum AuditAction {
+  USER_REGISTERED
+  LOGIN
+  LOGOUT
+  PAYMENT_CREATED
+  PAYMENT_COMPLETED
+  OFFER_VIEWED
+  OFFER_REDEEMED
+  REWARD_EARNED
+  REWARD_REDEEMED
+  BILL_CREATED
+  AI_INSIGHT_VIEWED
+  MERCHANT_APPROVED
+  USER_SUSPENDED
+}
+
+enum GoalType {
+  LAPTOP
+  PHONE
+  TRIP
+  EMERGENCY_FUND
+  COLLEGE_FEES
+  CUSTOM
+}
+
+enum LoyaltyRuleType {
+  SPEND_AMOUNT
+  VISIT_COUNT
+  CATEGORY_SPEND
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER & AUTH
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  role          Role
+  isActive      Boolean  @default(true)
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  studentProfile  StudentProfile?
+  merchantProfile MerchantProfile?
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+  bills           Bill[]          @relation("BillCreator")
+  billParticipants BillParticipant[]
+  sentPayments    Payment[]       @relation("PaymentSender")
+  aiInsights      AIInsight[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model StudentProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  college   String
+  course    String
+  year      Int
+  demoBalance Float  @default(5000.00)
+  totalPoints Int    @default(0)
+  level     Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  expenses     Expense[]
+  savingsGoals SavingsGoal[]
+  rewardLedger RewardLedger[]
+  coupons      Coupon[]
+  offerRedemptions OfferRedemption[]
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MERCHANT
+// ─────────────────────────────────────────────────────────────────────────────
+
+model MerchantCategory {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  icon        String
+  description String?
+  createdAt   DateTime   @default(now())
+
+  merchants   MerchantProfile[]
+  offers      Offer[]
+}
+
+model MerchantProfile {
+  id            String         @id @default(uuid())
+  userId        String         @unique
+  businessName  String
+  description   String?
+  categoryId    String
+  address       String
+  phone         String
+  website       String?
+  logoUrl       String?
+  qrCode        String?        @unique
+  status        MerchantStatus @default(PENDING)
+  totalSales    Float          @default(0)
+  totalCustomers Int           @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      MerchantCategory @relation(fields: [categoryId], references: [id])
+  offers        Offer[]
+  transactions  Transaction[]
+  loyaltyPrograms LoyaltyProgram[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([categoryId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRANSACTIONS & PAYMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Transaction {
+  id            String            @id @default(uuid())
+  transactionRef String           @unique
+  studentId     String
+  merchantId    String
+  amount        Float
+  status        TransactionStatus @default(PENDING)
+  paymentMethod PaymentMethod     @default(DEMO_BALANCE)
+  pointsEarned  Int               @default(0)
+  offerId       String?
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  student       StudentProfile    @relation(fields: [studentId], references: [id])
+  merchant      MerchantProfile   @relation(fields: [merchantId], references: [id])
+  offer         Offer?            @relation(fields: [offerId], references: [id])
+  payment       Payment?
+  expense       Expense?
+
+  @@index([studentId])
+  @@index([merchantId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  transactionId  String        @unique
+  senderId       String
+  amount         Float
+  status         TransactionStatus @default(PENDING)
+  providerRef    String?       // Future: real payment provider ref
+  providerName   String        @default("DEMO")
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  transaction    Transaction   @relation(fields: [transactionId], references: [id])
+  sender         User          @relation("PaymentSender", fields: [senderId], references: [id])
+
+  @@index([senderId])
+  @@index([transactionId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REWARDS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Reward {
+  id          String     @id @default(uuid())
+  title       String
+  description String
+  type        RewardType
+  pointsCost  Int
+  value       Float?     // monetary value if applicable
+  merchantId  String?    // null = platform-wide reward
+  isActive    Boolean    @default(true)
+  totalStock  Int?       // null = unlimited
+  usedCount   Int        @default(0)
+  imageUrl    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  coupons     Coupon[]
+  rewardLedger RewardLedger[]
+
+  @@index([isActive])
+  @@index([type])
+}
+
+model RewardLedger {
+  id          String     @id @default(uuid())
+  studentId   String
+  points      Int        // positive = earned, negative = spent
+  description String
+  rewardId    String?
+  transactionId String?
+  createdAt   DateTime   @default(now())
+
+  student     StudentProfile @relation(fields: [studentId], references: [id])
+  reward      Reward?        @relation(fields: [rewardId], references: [id])
+
+  @@index([studentId])
+  @@index([createdAt])
+}
+
+model Coupon {
+  id           String    @id @default(uuid())
+  code         String    @unique
+  studentId    String
+  rewardId     String
+  value        Float
+  description  String
+  isUsed       Boolean   @default(false)
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  student      StudentProfile @relation(fields: [studentId], references: [id])
+  reward       Reward         @relation(fields: [rewardId], references: [id])
+
+  @@index([studentId])
+  @@index([code])
+  @@index([isUsed])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OFFERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Offer {
+  id             String      @id @default(uuid())
+  merchantId     String
+  categoryId     String?
+  title          String
+  description    String
+  discountType   String      // PERCENTAGE or FLAT
+  discountValue  Float
+  minSpend       Float       @default(0)
+  maxDiscount    Float?
+  startDate      DateTime
+  endDate        DateTime
+  usageLimit     Int?
+  usedCount      Int         @default(0)
+  status         OfferStatus @default(PENDING_APPROVAL)
+  isStudentOnly  Boolean     @default(true)
+  imageUrl       String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  merchant       MerchantProfile    @relation(fields: [merchantId], references: [id])
+  category       MerchantCategory?  @relation(fields: [categoryId], references: [id])
+  redemptions    OfferRedemption[]
+  transactions   Transaction[]
+
+  @@index([merchantId])
+  @@index([status])
+  @@index([endDate])
+  @@index([categoryId])
+}
+
+model OfferRedemption {
+  id          String   @id @default(uuid())
+  offerId     String
+  studentId   String
+  discount    Float
+  createdAt   DateTime @default(now())
+
+  offer       Offer          @relation(fields: [offerId], references: [id])
+  student     StudentProfile @relation(fields: [studentId], references: [id])
+
+  @@index([offerId])
+  @@index([studentId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BILL SPLITTING
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Bill {
+  id          String     @id @default(uuid())
+  title       String
+  total       Float
+  creatorId   String
+  splitType   SplitType  @default(EQUAL)
+  status      BillStatus @default(OPEN)
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  creator      User            @relation("BillCreator", fields: [creatorId], references: [id])
+  participants BillParticipant[]
+
+  @@index([creatorId])
+  @@index([status])
+}
+
+model BillParticipant {
+  id        String   @id @default(uuid())
+  billId    String
+  userId    String
+  amount    Float
+  isPaid    Boolean  @default(false)
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+
+  bill      Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([billId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPENSE TRACKING
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Expense {
+  id            String   @id @default(uuid())
+  studentId     String
+  transactionId String?  @unique
+  amount        Float
+  category      String   // Food, Travel, Shopping, etc.
+  description   String
+  merchantName  String?
+  date          DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  student       StudentProfile @relation(fields: [studentId], references: [id])
+  transaction   Transaction?   @relation(fields: [transactionId], references: [id])
+
+  @@index([studentId])
+  @@index([category])
+  @@index([date])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SAVINGS GOALS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SavingsGoal {
+  id          String    @id @default(uuid())
+  studentId   String
+  title       String
+  goalType    GoalType  @default(CUSTOM)
+  target      Float
+  current     Float     @default(0)
+  deadline    DateTime?
+  isCompleted Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  student     StudentProfile @relation(fields: [studentId], references: [id])
+
+  @@index([studentId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI INSIGHTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AIInsight {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String   // SPENDING, OFFER_REC, SAVINGS, SUMMARY
+  title       String
+  content     String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOYALTY
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LoyaltyProgram {
+  id            String          @id @default(uuid())
+  merchantId    String
+  title         String
+  description   String
+  ruleType      LoyaltyRuleType
+  ruleValue     Float           // e.g. 1000 (spend ₹1000) or 5 (visit 5 times)
+  rewardType    RewardType
+  rewardValue   Float           // e.g. 100 points or 1 free item
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  merchant      MerchantProfile      @relation(fields: [merchantId], references: [id])
+  transactions  LoyaltyTransaction[]
+
+  @@index([merchantId])
+}
+
+model LoyaltyTransaction {
+  id          String         @id @default(uuid())
+  programId   String
+  studentId   String
+  progress    Float          @default(0)
+  isCompleted Boolean        @default(false)
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+
+  program     LoyaltyProgram @relation(fields: [programId], references: [id])
+
+  @@index([programId])
+  @@index([studentId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String      @id @default(uuid())
+  userId    String?
+  action    AuditAction
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime    @default(now())
+
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
