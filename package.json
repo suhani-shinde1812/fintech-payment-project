@@ -1,0 +1,13 @@
+{
+  "name": "fintech-payment-project",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix payloop-campus",
+    "build": "npm run build --prefix payloop-campus",
+    "test": "npm run test --prefix payloop-campus",
+    "db:migrate": "npm run db:migrate --prefix payloop-campus",
+    "db:seed": "npm run db:seed --prefix payloop-campus",
+    "db:studio": "npm run db:studio --prefix payloop-campus"
+  }
+}

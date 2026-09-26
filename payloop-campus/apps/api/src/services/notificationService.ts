@@ -17,7 +17,7 @@ export const notificationService = {
         type: params.type,
         title: params.title,
         message: params.message,
-        metadata: params.metadata
+        metadata: params.metadata as any
       }
     });
   },

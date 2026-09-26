@@ -68,7 +68,7 @@ export const aiController = {
             type: 'SPENDING',
             title: aiResponse.data.title || 'Your Spending Insight',
             content: aiResponse.data.content,
-            metadata: aiResponse.data
+            metadata: aiResponse.data as any
           }
         });
 

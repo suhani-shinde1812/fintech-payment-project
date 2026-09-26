@@ -6,7 +6,6 @@
   "moduleNameMapper": {
     "^@payloop/(.*)$": "<rootDir>/../../packages/$1/src"
   },
-  "setupFilesAfterFramework": [],
   "coverageDirectory": "coverage",
   "collectCoverageFrom": ["src/**/*.ts", "!src/**/*.d.ts"]
 }

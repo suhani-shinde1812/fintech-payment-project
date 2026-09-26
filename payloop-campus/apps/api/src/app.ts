@@ -30,8 +30,14 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 
+const corsOrigin = config.corsOrigin === '*'
+  ? true
+  : config.corsOrigin.includes(',')
+    ? config.corsOrigin.split(',').map((o) => o.trim())
+    : config.corsOrigin;
+
 app.use(cors({
-  origin: config.corsOrigin,
+  origin: corsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']

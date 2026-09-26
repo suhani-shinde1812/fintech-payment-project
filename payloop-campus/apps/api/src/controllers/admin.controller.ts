@@ -76,13 +76,13 @@ export const adminController = {
           },
           orderBy: { createdAt: 'desc' },
           skip,
-          take,
-          omit: { passwordHash: true }
+          take
         }),
         prisma.user.count({ where })
       ]);
 
-      res.json({ success: true, data: { users, total, page, limit } });
+      const sanitizedUsers = users.map(({ passwordHash: _, ...rest }) => rest);
+      res.json({ success: true, data: { users: sanitizedUsers, total, page, limit } });
     } catch (error) {
       next(error);
     }
@@ -98,7 +98,10 @@ export const adminController = {
       const [merchants, total] = await Promise.all([
         prisma.merchantProfile.findMany({
           where,
-          include: { user: { omit: { passwordHash: true } }, category: true },
+          include: {
+            user: { select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true } },
+            category: true
+          },
           orderBy: { createdAt: 'desc' },
           skip,
           take
@@ -171,7 +174,11 @@ export const adminController = {
       const [transactions, total] = await Promise.all([
         prisma.transaction.findMany({
           include: {
-            student: { include: { user: { omit: { passwordHash: true } } } },
+            student: {
+              include: {
+                user: { select: { id: true, name: true, email: true, role: true } }
+              }
+            },
             merchant: true,
             payment: true
           },

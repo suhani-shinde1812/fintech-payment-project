@@ -1,8 +1,8 @@
 import request from 'supertest';
-import app from '../../app';
+import app from '../app';
 
 // Mock Prisma
-jest.mock('../../config/database', () => ({
+jest.mock('../config/database', () => ({
   prisma: {
     user: {
       findUnique: jest.fn(),
@@ -15,7 +15,7 @@ jest.mock('../../config/database', () => ({
   }
 }));
 
-const mockPrisma = require('../../config/database').prisma;
+const mockPrisma = require('../config/database').prisma;
 
 describe('Auth API', () => {
   beforeEach(() => {
@@ -133,7 +133,7 @@ describe('Auth API', () => {
 });
 
 describe('Helpers', () => {
-  const { calculatePoints, calculateLevel, generateTransactionRef, generateCouponCode } = require('../../utils/helpers');
+  const { calculatePoints, calculateLevel, generateTransactionRef, generateCouponCode } = require('../utils/helpers');
 
   test('calculatePoints: ₹100 = 5 points', () => {
     expect(calculatePoints(100)).toBe(5);
@@ -167,7 +167,7 @@ describe('Helpers', () => {
 });
 
 describe('Demo Payment Provider', () => {
-  const { DemoPaymentProvider } = require('../../services/paymentProvider');
+  const { DemoPaymentProvider } = require('../services/paymentProvider');
 
   test('should succeed for all payments', async () => {
     const provider = new DemoPaymentProvider();

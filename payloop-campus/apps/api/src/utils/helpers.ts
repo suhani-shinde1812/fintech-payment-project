@@ -79,7 +79,7 @@ export function calculateDiscount(
 /**
  * Safe pagination helper
  */
-export function getPagination(page?: string | number, limit?: string | number) {
+export function getPagination(page?: unknown, limit?: unknown) {
   const p = Math.max(1, parseInt(String(page || 1), 10));
   const l = Math.min(100, Math.max(1, parseInt(String(limit || 20), 10)));
   return {

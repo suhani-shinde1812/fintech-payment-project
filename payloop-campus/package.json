@@ -7,7 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=apps/api\" \"npm run dev --workspace=apps/web\"",
+    "dev": "concurrently -n \"api,web,ai\" -c \"blue,green,magenta\" \"npm run dev --workspace=apps/api\" \"npm run dev --workspace=apps/web\" \"python apps/ai-service/main.py\"",
+    "dev:node": "concurrently \"npm run dev --workspace=apps/api\" \"npm run dev --workspace=apps/web\"",
+    "dev:ai": "python apps/ai-service/main.py",
     "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web",
     "db:migrate": "npm run db:migrate --workspace=apps/api",
     "db:seed": "npm run db:seed --workspace=apps/api",
