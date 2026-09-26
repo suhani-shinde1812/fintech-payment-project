@@ -49,4 +49,7 @@ async def health():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     is_dev = os.getenv("NODE_ENV") != "production" and os.getenv("ENV") != "production"
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=is_dev)
+    if is_dev:
+        uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+    else:
+        uvicorn.run(app, host="0.0.0.0", port=port)
